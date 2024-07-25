@@ -42,19 +42,6 @@ conda activate diffree
 pip install -r requirements.txt
 ```
 
-## Training
-
-1. Diffree is fine-tuned from an initial Stable Diffusion v1.5 checkpoint. The process begins by downloading this checkpoint.
-```
-curl -L https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt -o ./stable_diffusion/models/ldm/stable-diffusion-v1/v1-5-pruned-emaonly.ckpt
-```
-
-2. You can inference with the script:
-
-```
-python app.py
-```
-
 ## Inference
 
 1. Download the Diffree model from Huggingface.
