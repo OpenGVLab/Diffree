@@ -2,8 +2,12 @@
 Official PyTorch implement of paper "Diffree: Text-Guided Shape Free Object Inpainting with Diffusion Model"
 
 <p align="center">
+  <a href="https://opengvlab.github.io/Diffree/"><u>[🌐Project Page]</u></a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="https://drive.google.com/file/d/1AdIPA5TK5LB1tnqqZuZ9GsJ6Zzqo2ua6/view"><u>[🎥 Video]</u></a>
+  &nbsp;&nbsp;&nbsp;
   <a href="https://arxiv.org/pdf/2407.16982"><u>[📜 Arxiv]</u></a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  &nbsp;&nbsp;&nbsp;
   <a href="https://huggingface.co/spaces/LiruiZhao/Diffree"><u>[🤗 Hugging Face Demo]</u></a>
 </p>
 
