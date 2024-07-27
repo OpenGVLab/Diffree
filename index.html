@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="Diffree: Text-Guided Shape Free Object Inpainting with Diffusion Model">
+  <meta name="keywords" content="Image Inpainting, Diffusion Models, Text-guided Image Editing">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Diffree: Text-Guided Shape Free Object Inpainting with Diffusion Model</title>
+
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-3NFN6D2TG8"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+
+    gtag('config', 'G-3NFN6D2TG8');
+  </script>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <!-- <link rel="icon" href="./static/images/favicon.svg"> -->
+
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+
+  <!-- Vendor Stylesheets -->
+  <!--=================js==========================-->
+  <link rel="stylesheet" href="./static/css/tab_gallery.css">
+  <link rel="stylesheet" href="./static/css/image_card_fader.css">
+  <link rel="stylesheet" href="./static/css/image_card_slider.css">
+</head>
+<body>
+
+
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <!-- <h1 class="title is-2 publication-title"><span style="color:#e1570c; font-weight: bold; font-style: italic"><strong>Diffree</strong></span> : Text-Guided Shape Free Object Inpainting with Diffusion Model</h1> -->
+          <h1 class="title is-2 publication-title">Diffree: Text-Guided Shape Free Object Inpainting with Diffusion Model</h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              <a>Lirui Zhao</a><sup>1,2†</sup>,</span>
+            <span class="author-block">
+              <a>Tianshuo Yang</a><sup>2,3†</sup>,</span>
+            <span class="author-block">
+              <a>Wenqi Shao</a><sup>2†‡</sup>,</span>
+            <span class="author-block">
+              <a>Yuxin Zhang</a><sup>1</sup>,</span>
+            </span>
+            <br>
+            <span class="author-block">
+              <a>Yu Qiao</a><sup>2</sup>,</span>
+            </span>
+            <span class="author-block">
+              <a>Ping Luo</a><sup>2,3</sup>,</span>
+            </span>
+            <span class="author-block">
+              <a>Kaipeng Zhang</a><sup>2‡*</sup>,</span>
+            </span>
+            <span class="author-block">
+              <a>Rongrong Ji</a><sup>1*</sup></span>
+            </span>
+          </div>
+
+          <div class="is-size-5 publication-authors">
+            <span class="author-block"><sup>1</sup>Xiamen University <sup>2</sup>OpenGVLab, Shanghai AI Laboratory <br> <sup>3</sup>The Chinese University of Hong Kong <br/>
+          </div>
+          
+          <div class="author-notes" style="font-size: 1em; color: gray; margin-top: 10px;">
+            †Equal contribution
+            ‡Project lead
+            *Corresponding author
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- PDF Link. -->
+              <!-- <span class="link-block">
+                <a href=""
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                  </span>
+                  <span>ReadPaper</span>
+                </a>
+              </span> -->
+              <span class="link-block">
+                <a href="https://arxiv.org/pdf/2407.16982"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                  </span>
+                  <span>arXiv</span>
+                </a>
+              </span>
+              <!-- Video Link. -->
+              <span class="link-block">
+                <a href="https://drive.google.com/file/d/1AdIPA5TK5LB1tnqqZuZ9GsJ6Zzqo2ua6/view"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-youtube"></i>
+                  </span>
+                  <span>Video</span>
+                </a>
+              </span>
+              <!-- Code Link. -->
+              <span class="link-block">
+                <a href="https://github.com/OpenGVLab/Diffree"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                  </a>
+              </span>  
+              <!-- huggingface Link. -->
+              <span class="link-block">
+                <a href="https://huggingface.co/spaces/LiruiZhao/Diffree"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                    🤗 
+                  </span>
+                  <span>Online Demo</span>
+                  </a>
+              </span>
+              <!-- Dataset Link. -->
+              <!-- <span class="link-block">
+                <a href="https://forms.gle/9TgMZ8tm49UYsZ9s5"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="far fa-images"></i>
+                  </span>
+                  <span>Data</span>
+                  </a> -->
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Video. -->
+<section class="hero is-light is-small">
+  <div class="columns is-centered has-text-centered"  style="margin-top: 10px; margin-bottom: 20px;">
+    <div class="column is-three-fifths">
+      <h2 class="title is-3">Video</h2>
+      
+      <div class="publication-video">
+        <iframe width="560" height="315" src="https://drive.google.com/file/d/1AdIPA5TK5LB1tnqqZuZ9GsJ6Zzqo2ua6/preview" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Abstract -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            This paper addresses an important problem of object addition for images with only text guidance. It is challenging because the new object must be integrated seamlessly into the image with consistent visual context, such as lighting, texture, and spatial location. While existing text-guided image inpainting methods can add objects, they either fail to preserve the background consistency or involve cumbersome human intervention in specifying bounding boxes or user-scribbled masks. To tackle this challenge, we introduce Diffree, a Text-to-Image (T2I) model that facilitates text-guided object addition with only text control. To this end, we curate OABench, an exquisite synthetic dataset by removing objects with advanced image inpainting techniques. OABench comprises 74K real-world tuples of an original image, an inpainted image with the object removed, an object mask, and object descriptions. Trained on OABench using the Stable Diffusion model with an additional mask prediction module, Diffree uniquely predicts the position of the new object and achieves object addition with guidance from only text. Extensive experiments demonstrate that Diffree excels in adding new objects with a high success rate while maintaining background consistency, spatial appropriateness, and object relevance and quality.
+          </p>
+          </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+
+
+<!-- Overview -->
+<section class="section" style="background-color: #f1f1f1;">
+  <div class="container"  style="margin-top:30px;">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Overview</h2>
+        <p style="text-align: left;">Diffree is trained to predict masks and images containing the new object given the original image and object text description. Thanks to the extensive coverage of objects in natural scenes in OABench, Diffree can add various objects to the same image while matching the visual context well. Moreover, Diffree can iteratively insert objects into a single image while preserving the background consistency using the generated mask.</p>
+        <div class="content has-text-justified">
+          <div style="text-align: center; vertical-align:middle">
+            <img src="figures/model.png" width="900">
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>  
+</section>
+
+
+<!-- OABench -->
+<section class="section">
+  <div class="container"  style="margin-top:30px;">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">OABench</h2>
+        
+        <div class="content has-text-justified">
+          <p>
+            Towards high-quality text-guided object addition, we curate a synthetic dataset named Object Addition Benchmark (OABench) which consists of 74K real-world tuples including an original image, an inpainted image, a mask image of the object, and an object description. The data curation process is illustrated in the figure below. Note that object addition can be deemed as the inverse process of object removal. We build OABench by removing objects in the image using advanced image inpainting algorithms. In this way, we can obtain an original image containing the object, an inpainted image with the object removed, the object mask, and the object descriptions.
+          </p>
+          </div>
+        <div class="content has-text-justified">
+          <div style="text-align: center; vertical-align:middle">
+            <img src="figures/oabench.png" width="900">
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>  
+</section>
+
+
+
+
+<!-- Visualization -->
+<section class="section" style="background-color: #f1f1f1;">
+  <div class="container">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Visualization</h2>
+        <div class="content has-text-justified">
+          <div style="text-align: center; vertical-align:middle">
+            <img src="figures/visualization_1.png" width="1000">
+          </div>
+        </div>
+        <div class="content has-text-justified">
+          <div style="text-align: center; vertical-align:middle">
+            <img src="figures/visualization_2.png" width="1000">
+          </div>
+        </div>
+        <div class="content has-text-justified">
+          <div style="text-align: center; vertical-align:middle">
+            <img src="figures/visualization_3.png" width="1000">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+    
+
+<!-- OABench -->
+<section class="section">
+  <div class="container">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Visualization</h2>
+        <div class="content has-text-justified">
+          <p>
+            Applications combined with Diffree. (a): combined with anydoor to add a specific object. (b): using GPT4V to plan what should be added.
+          </p>
+          </div>
+        <div class="content has-text-justified">
+          <div style="text-align: center; vertical-align:middle">
+            <img src="figures/applications.png" width="1000">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">Cite Us</h2>
+    <pre><code>@article{zhao2024diffree,
+      title={Diffree: Text-Guided Shape Free Object Inpainting with Diffusion Model},
+      author={Zhao, Lirui and Yang, Tianshuo and Shao, Wenqi and Zhang, Yuxin and Qiao, Yu and Luo, Ping and Zhang, Kaipeng and Ji, Rongrong},
+      journal={arXiv preprint arXiv:2407.16982},
+      year={2024}
+    }</code></pre>
+  </div>
+</section>
+
+  
+<footer class="footer">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+          <p>
+            This website adapted from the following <a href="https://tencentarc.github.io/BrushNet/">template</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
