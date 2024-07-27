@@ -18,7 +18,6 @@ from PIL import Image, ImageOps, ImageFilter
 from torch import autocast
 import cv2
 import imageio
-import spaces
 
 sys.path.append("./stable_diffusion")
 
@@ -82,7 +81,8 @@ class CompVisDenoiser(K.external.CompVisDenoiser):
     
     def forward(self, input_0, input_1, sigma, **kwargs):
         c_out, c_in = [append_dims(x, input_0.ndim) for x in self.get_scalings(sigma)]
-        eps_0, eps_1 = self.get_eps(input_0 * c_in, self.sigma_to_t(sigma.cpu().float()).cuda(), **kwargs)
+        # eps_0, eps_1 = self.get_eps(input_0 * c_in, input_1 * c_in, self.sigma_to_t(sigma), **kwargs)
+        eps_0, eps_1 = self.get_eps(input_0 * c_in, self.sigma_to_t(sigma).cuda(), **kwargs)
         
         return input_0 + eps_0 * c_out, eps_1
 
@@ -142,8 +142,8 @@ def sample_euler_ancestral(model, x_0, x_1, sigmas, height, width, extra_args=No
 
 parser = ArgumentParser()
 parser.add_argument("--resolution", default=512, type=int)
-parser.add_argument("--config", default="configs/generate_diffree.yaml", type=str)
-parser.add_argument("--ckpt", default="checkpoints/diffree-step=000010999.ckpt", type=str)
+parser.add_argument("--config", default="config/generate.yaml", type=str)
+parser.add_argument("--ckpt", default="checkpoints/epoch=000041-step=000010999.ckpt", type=str)
 parser.add_argument("--vae-ckpt", default=None, type=str)
 args = parser.parse_args()
 
@@ -247,10 +247,12 @@ def generate(
                 for image in image_video:
                     video.append_data(image)
 
+        # 对edited_mask做膨胀
         edited_mask_copy = edited_mask.copy()
         kernel = np.ones((3, 3), np.uint8)
         edited_mask = cv2.dilate(np.array(edited_mask), kernel, iterations=3)
         edited_mask = Image.fromarray(edited_mask)
+
 
         m_img = edited_mask.filter(ImageFilter.GaussianBlur(radius=3))
         m_img = np.asarray(m_img).astype('float') / 255.0
@@ -269,6 +271,8 @@ def generate(
         mix_result_with_red_mask = Image.fromarray(
             (mix_result_with_red_mask.astype('float') * (1 - m_img.astype('float') / 2.0) +
             m_img.astype('float') / 2.0 * red).astype('uint8'))
+
+
 
         mask_video_path = "mask.mp4"
         fps = 30
@@ -300,17 +304,6 @@ with gr.Blocks(css="footer {visibility: hidden}") as demo:
     with gr.Row():
         gr.Markdown(
             "<div align='center'><font size='14'>Diffree: Text-Guided Shape Free Object Inpainting with Diffusion Model</font></div>"  # noqa
-        )
-        gr.Markdown(
-            """
-            <div align='center'>
-                <font size='14'>
-                    <a href='https://github.com/OpenGVLab/Diffree' target='_blank'>
-                        Diffree: Text-Guided Shape Free Object Inpainting with Diffusion Model
-                    </a>
-                </font>
-            </div>
-            """  # noqa
         )
 
     with gr.Row():
@@ -349,13 +342,14 @@ with gr.Blocks(css="footer {visibility: hidden}") as demo:
             with gr.Column():
                 edited_mask = gr.Image(label=f"Output Mask", type="pil", interactive=False)
     
+    
     with gr.Accordion('More outputs', open=False):
         with gr.Row():
             weather_close_video = gr.Radio(
                 ["Show Image Video", "Close Image Video"],
                 value="Close Image Video",
                 type="index",
-                label="Image Generation Process Selection (close for faster generation)",
+                label="Image Generation Process Selection ()",
                 interactive=True,
             )
             decode_image_batch = gr.Number(value=10, precision=0, label="Decode Image Batch (<steps)", interactive=True)
@@ -367,6 +361,7 @@ with gr.Blocks(css="footer {visibility: hidden}") as demo:
             edited_image = gr.Image(label=f"Output Image", type="pil", interactive=False)
             mix_result_with_red_mask = gr.Image(label=f"Mix Image With Red Mask", type="pil", interactive=False)
             
+    
     with gr.Row():
         gr.Examples(
             examples=get_example(),
@@ -397,5 +392,10 @@ with gr.Blocks(css="footer {visibility: hidden}") as demo:
         inputs=[],
         outputs=[steps, randomize_seed, seed, randomize_cfg, text_cfg_scale, image_cfg_scale, edited_image, mix_image, edited_mask, mask_video, image_video, original_image, mix_result_with_red_mask, weather_close_video, decode_image_batch],
     )
+
+
+# demo.queue(concurrency_count=1)
+# demo.launch(share=True)
+
 
 demo.queue().launch()
