@@ -143,7 +143,7 @@ def sample_euler_ancestral(model, x_0, x_1, sigmas, height, width, extra_args=No
 parser = ArgumentParser()
 parser.add_argument("--resolution", default=512, type=int)
 parser.add_argument("--config", default="config/generate.yaml", type=str)
-parser.add_argument("--ckpt", default="checkpoints/epoch=000041-step=000010999.ckpt", type=str)
+parser.add_argument("--ckpt", default="checkpoints/diffree-step=000010999.ckpt", type=str)
 parser.add_argument("--vae-ckpt", default=None, type=str)
 args = parser.parse_args()
 
