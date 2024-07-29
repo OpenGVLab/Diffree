@@ -61,6 +61,7 @@ huggingface-cli download LiruiZhao/Diffree --local-dir ./checkpoints
 python app.py
 ```
 
+Specifically, `--resolution` defines the maximum size for both the resized input image and output image. For our <a href="https://huggingface.co/spaces/LiruiZhao/Diffree">Hugging Face Demo</a>, we set the `--resolution` to `512` to enhance the user experience with higher-resolution results. While during the training process of Diffree, `--resolution` is set to `256`. Therefore, reducing `--resolution` might improve results (e.g., consider trying `320` as a potential value).
 
 ## Citation
 If you found this work useful, please consider citing:
