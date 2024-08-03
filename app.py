@@ -349,7 +349,7 @@ with gr.Blocks(css="footer {visibility: hidden}") as demo:
                 ["Show Image Video", "Close Image Video"],
                 value="Close Image Video",
                 type="index",
-                label="Image Generation Process Selection ()",
+                label="Image Generation Process Selection (close for faster generation)",
                 interactive=True,
             )
             decode_image_batch = gr.Number(value=10, precision=0, label="Decode Image Batch (<steps)", interactive=True)

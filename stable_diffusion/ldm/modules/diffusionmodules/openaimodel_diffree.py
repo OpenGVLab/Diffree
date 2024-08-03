@@ -818,7 +818,6 @@ class UNetModel(nn.Module):
 
 class OMPModule(nn.Module):
     """
-    The full UNet model with attention and timestep embedding.
     :param in_channels: channels in the input Tensor.
     :param model_channels: base channel count for the model.
     :param out_channels: channels in the output Tensor.
@@ -828,7 +827,7 @@ class OMPModule(nn.Module):
         For example, if this contains 4, then at 4x downsampling, attention
         will be used.
     :param dropout: the dropout probability.
-    :param channel_mult: channel multiplier for each level of the UNet.
+    :param channel_mult: channel multiplier for each level of the OMPModule.
     :param conv_resample: if True, use learned convolutions for upsampling and
         downsampling.
     :param dims: determines if the signal is 1D, 2D, or 3D.

@@ -505,7 +505,6 @@ class LatentDiffusion(DDPM):
                  scale_factor=1.0,
                  scale_by_std=False,
                  load_ema=True,
-                 first_stage_downsample=False,
                  mask_loss_factor=1.0,
                  *args, **kwargs):
         self.num_timesteps_cond = default(num_timesteps_cond, 1)
@@ -531,7 +530,6 @@ class LatentDiffusion(DDPM):
         else:
             self.register_buffer('scale_factor', torch.tensor(scale_factor))
         self.instantiate_first_stage(first_stage_config)
-        self.first_stage_downsample = first_stage_downsample
         self.mask_loss_factor = mask_loss_factor
         self.instantiate_cond_stage(cond_stage_config)
         self.cond_stage_forward = cond_stage_forward
@@ -746,11 +744,10 @@ class LatentDiffusion(DDPM):
         
         encoder_posterior = self.encode_first_stage(x_0)
         z_0 = self.get_first_stage_encoding(encoder_posterior).detach()
-        if self.first_stage_downsample:
-            z_1 = F.interpolate(x_1, scale_factor=1/8, mode='bilinear', align_corners=False)
-            z_1 = torch.where(z_1 > 0.5, 1, -1).float()  # Thresholding step
-        else:
-            z_1 = self.get_first_stage_encoding(self.encode_first_stage(x_1)).detach()
+    
+        z_1 = F.interpolate(x_1, scale_factor=1/8, mode='bilinear', align_corners=False)
+        z_1 = torch.where(z_1 > 0.5, 1, -1).float()  # Thresholding step
+    
         
         cond_key = cond_key or self.cond_stage_key
         xc = super().get_input(batch, cond_key)
@@ -772,11 +769,8 @@ class LatentDiffusion(DDPM):
         if return_first_stage_outputs:
             x_0_rec = self.decode_first_stage(z_0)
             
-            if self.first_stage_downsample:
-                x_1_rec = F.interpolate(z_1, scale_factor=8, mode='bilinear', align_corners=False)
-                x_1_rec = torch.where(x_1_rec > 0, 1, -1)  # Thresholding step
-            else:
-                x_1_rec = self.decode_first_stage(z_1)
+            x_1_rec = F.interpolate(z_1, scale_factor=8, mode='bilinear', align_corners=False)
+            x_1_rec = torch.where(x_1_rec > 0, 1, -1)  # Thresholding step
             out.extend([x_0, x_0_rec, x_1, x_1_rec])
         if return_original_cond:
             out.append(xc)
@@ -971,7 +965,6 @@ class LatentDiffusion(DDPM):
         t = torch.randint(0, self.num_timesteps, (x_0.shape[0],), device=self.device).long()
         if self.model.conditioning_key is not None:
             assert c is not None
-            # in pix2pix, cond_stage_trainable and short_cond_schedule are false
             if self.cond_stage_trainable:
                 c = self.get_learned_conditioning(c)
             if self.shorten_cond_schedule:  # TODO: drop this option
@@ -1116,24 +1109,17 @@ class LatentDiffusion(DDPM):
     def p_losses(self, x_start_0, x_start_1, cond, t, noise=None):
         noise_0 = default(noise, lambda: torch.randn_like(x_start_0))
         x_noisy_0 = self.q_sample(x_start=x_start_0, t=t, noise=noise_0)
-        if self.first_stage_downsample:
-            x_noisy_1 = None
-        else:    
-            noise_1 = default(noise, lambda: torch.randn_like(x_start_1))
-            x_noisy_1 = self.q_sample(x_start=x_start_1, t=t, noise=noise_1)
+        
         model_output_0, model_output_1 = self.apply_model(x_noisy_0, t, cond)
         loss_dict = {}
         prefix = 'train' if self.training else 'val'
         
-        if self.first_stage_downsample:
-            target_0 = noise_0
-            target_1 = x_start_1
-        elif self.parameterization == "x0":
+        if self.parameterization == "x0":
             target_0 = x_start_0
             target_1 = x_start_1
         elif self.parameterization == "eps":
             target_0 = noise_0
-            target_1 = noise_1
+            target_1 = x_start_1
         else:
             raise NotImplementedError()
         
