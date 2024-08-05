@@ -28,6 +28,7 @@ We are open to any suggestions and discussions and feel free to contact us throu
 - [2024/08] Release ConfyUI demo. Thanks [smthemex](https://github.com/smthemex) ([ComfyUI_Diffree](https://github.com/smthemex/ComfyUI_Diffree)) for helping!
 - [2024/08] Release [training dataset OABench](https://huggingface.co/datasets/LiruiZhao/OABench) in Hugging Face
 - [2024/08] Release training code
+- [2024/08] Update <a href="https://huggingface.co/spaces/LiruiZhao/Diffree">🤗 Demo</a>, now support iterative generation through a text list
 
 ## Contents
 - [Install](#install)
