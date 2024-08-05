@@ -210,11 +210,9 @@ def generate(
         
         x_0 = model.decode_first_stage(z_0)
 
-        if model.first_stage_downsample:
-            x_1 = nn.functional.interpolate(z_1, size=(height, width), mode="bilinear", align_corners=False)
-            x_1 = torch.where(x_1 > 0, 1, -1)  # Thresholding step
-        else:
-            x_1 = model.decode_first_stage(z_1)
+        
+        x_1 = nn.functional.interpolate(z_1, size=(height, width), mode="bilinear", align_corners=False)
+        x_1 = torch.where(x_1 > 0, 1, -1)  # Thresholding step
         
         x_0 = torch.clamp((x_0 + 1.0) / 2.0, min=0.0, max=1.0)
         x_1 = torch.clamp((x_1 + 1.0) / 2.0, min=0.0, max=1.0)
@@ -282,22 +280,140 @@ def generate(
 
         return [int(seed), text_cfg_scale, image_cfg_scale, edited_image, mix_image, edited_mask_copy, mask_video_path, image_video_path, input_image_copy, mix_result_with_red_mask]
 
+def generate_list(
+    input_image: Image.Image,
+    generate_list: str,
+    steps: int,
+    randomize_seed: bool,
+    seed: int,
+    randomize_cfg: bool,
+    text_cfg_scale: float,
+    image_cfg_scale: float,
+    weather_close_video: bool,
+    decode_image_batch: int
+):
+    generate_list = generate_list.split('\n')
+    # Remove the empty element
+    generate_list = [element for element in generate_list if element]
+
+    seed = random.randint(0, 100000) if randomize_seed else seed
+    text_cfg_scale = round(random.uniform(6.0, 9.0), ndigits=2) if randomize_cfg else text_cfg_scale
+    image_cfg_scale = round(random.uniform(1.2, 1.8), ndigits=2) if randomize_cfg else image_cfg_scale
+
+    width, height = input_image.size
+    factor = args.resolution / max(width, height)
+    factor = math.ceil(min(width, height) * factor / 64) * 64 / min(width, height)
+    width = int((width * factor) // 64) * 64
+    height = int((height * factor) // 64) * 64
+    input_image = ImageOps.fit(input_image, (width, height), method=Image.Resampling.LANCZOS)
+
+    if len(generate_list) == 0:
+        return [input_image, seed]
+    
+    model.cuda()
+    image_video = [np.array(input_image).astype(np.uint8)]
+    generate_index = 0
+    retry_number = 0
+    max_retry = 10
+    input_image_copy = input_image.convert("RGB")
+    while generate_index < len(generate_list): 
+        print(f'generate_index: {str(generate_index)}')
+        instruction = generate_list[generate_index]
+        with torch.no_grad(), autocast("cuda"), model.ema_scope():
+            cond = {}
+            input_image_torch = 2 * torch.tensor(np.array(input_image_copy.copy())).float() / 255 - 1
+            input_image_torch = rearrange(input_image_torch, "h w c -> 1 c h w").to(model.device)
+            cond["c_crossattn"] = [model.get_learned_conditioning([instruction]).to(model.device)]
+            cond["c_concat"] = [model.encode_first_stage(input_image_torch).mode().to(model.device)]
+
+            uncond = {}
+            uncond["c_crossattn"] = [null_token.to(model.device)]
+            uncond["c_concat"] = [torch.zeros_like(cond["c_concat"][0])]
+
+            sigmas = model_wrap.get_sigmas(steps).to(model.device)
+
+            extra_args = {
+                "cond": cond,
+                "uncond": uncond,
+                "text_cfg_scale": text_cfg_scale,
+                "image_cfg_scale": image_cfg_scale,
+            }
+            torch.manual_seed(seed)
+            z_0 = torch.randn_like(cond["c_concat"][0]).to(model.device) * sigmas[0]
+            z_1 = torch.randn_like(cond["c_concat"][0]).to(model.device) * sigmas[0]
+            
+            z_0, z_1, _, _ = sample_euler_ancestral(model_wrap_cfg, z_0, z_1, sigmas, height, width, extra_args=extra_args)
+        
+            x_0 = model.decode_first_stage(z_0)
+            
+            x_1 = nn.functional.interpolate(z_1, size=(height, width), mode="bilinear", align_corners=False)
+            x_1 = torch.where(x_1 > 0, 1, -1)  # Thresholding step
+            
+            if torch.sum(x_1).item()/x_1.numel() < -0.99:
+                seed += 1
+                retry_number +=1
+                if retry_number > max_retry:
+                    generate_index += 1
+                continue
+            else:
+                generate_index += 1
+            
+            x_0 = torch.clamp((x_0 + 1.0) / 2.0, min=0.0, max=1.0)
+            x_1 = torch.clamp((x_1 + 1.0) / 2.0, min=0.0, max=1.0)
+            x_0 = 255.0 * rearrange(x_0, "1 c h w -> h w c")
+            x_1 = 255.0 * rearrange(x_1, "1 c h w -> h w c")
+            x_1 = torch.cat([x_1, x_1, x_1], dim=-1)
+            edited_image = Image.fromarray(x_0.type(torch.uint8).cpu().numpy())
+            edited_mask = Image.fromarray(x_1.type(torch.uint8).cpu().numpy())
+
+            # 对edited_mask做膨胀
+            edited_mask_copy = edited_mask.copy()
+            kernel = np.ones((3, 3), np.uint8)
+            edited_mask = cv2.dilate(np.array(edited_mask), kernel, iterations=3)
+            edited_mask = Image.fromarray(edited_mask)
+
+            m_img = edited_mask.filter(ImageFilter.GaussianBlur(radius=3))
+            m_img = np.asarray(m_img).astype('float') / 255.0
+            img_np = np.asarray(input_image_copy).astype('float') / 255.0
+            ours_np = np.asarray(edited_image).astype('float') / 255.0
+
+            mix_image_np =  m_img * ours_np + (1 - m_img) * img_np
+            
+            image_video.append((mix_image_np * 255).astype(np.uint8))
+            mix_image = Image.fromarray((mix_image_np * 255).astype(np.uint8)).convert('RGB')
+            input_image_copy = mix_image
+
+    mix_result_with_red_mask = None
+    mask_video_path = None
+    edited_mask_copy = None
+
+    image_video_path = "image.mp4"
+    fps = 2
+    with imageio.get_writer(image_video_path, fps=fps) as video:
+        for image in image_video:
+            video.append_data(image)
+
+    
+    return [int(seed), text_cfg_scale, image_cfg_scale, edited_image, mix_image, edited_mask_copy, mask_video_path, image_video_path, input_image, mix_result_with_red_mask]
+
 def reset():
     return [100, "Randomize Seed", 1372, "Fix CFG", 7.5, 1.5, None, None, None, None, None, None, None, "Close Image Video", 10]
 
 def get_example():
     return [
-        ["example_images/dufu.png", "black and white suit", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
-        ["example_images/girl.jpeg", "reflective sunglasses", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
-        ["example_images/road_sign.png", "stop sign", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
-        ["example_images/dufu.png", "blue medical mask", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
-        ["example_images/people_standing.png", "dark green pleated skirt", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
-        ["example_images/girl.jpeg", "shiny golden crown", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
-        ["example_images/dufu.png", "sunglasses", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
-        ["example_images/girl.jpeg", "diamond necklace", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
-        ["example_images/iron_man.jpg", "sunglasses", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
-        ["example_images/girl.jpeg", "the queen's crown", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
-        ["example_images/girl.jpeg", "gorgeous yellow gown", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
+        ["example_images/dufu.png", "", "black and white suit\nsunglasses\nblue medical mask\nyellow schoolbag\nred bow tie\nbrown high-top hat", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
+        ["example_images/girl.jpeg", "", "reflective sunglasses\nshiny golden crown\ndiamond necklace\ngorgeous yellow gown", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
+        ["example_images/dufu.png", "black and white suit", "", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
+        ["example_images/girl.jpeg", "reflective sunglasses", "", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
+        ["example_images/road_sign.png", "stop sign", "", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
+        ["example_images/dufu.png", "blue medical mask", "", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
+        ["example_images/people_standing.png", "dark green pleated skirt", "", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
+        ["example_images/girl.jpeg", "shiny golden crown", "", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
+        ["example_images/dufu.png", "sunglasses", "", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
+        ["example_images/girl.jpeg", "diamond necklace", "", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
+        ["example_images/iron_man.jpg", "sunglasses", "", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
+        ["example_images/girl.jpeg", "the queen's crown", "", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
+        ["example_images/girl.jpeg", "gorgeous yellow gown", "", 100, "Fix Seed", 1372, "Fix CFG", 7.5, 1.5],
     ]
 
 with gr.Blocks(css="footer {visibility: hidden}") as demo:
@@ -311,7 +427,14 @@ with gr.Blocks(css="footer {visibility: hidden}") as demo:
             with gr.Row():
                 input_image = gr.Image(label="Input Image", type="pil", interactive=True)
             with gr.Row():
-                instruction = gr.Textbox(lines=1, label="Object description", interactive=True)
+                instruction = gr.Textbox(lines=1, label="Single object description", interactive=True)
+            with gr.Row():
+                reset_button = gr.Button("Reset")
+                generate_button = gr.Button("Generate")
+            with gr.Row():
+                list_input = gr.Textbox(label="Input List", placeholder="Enter one item per line", lines=10)
+            with gr.Row():
+                list_generate_button = gr.Button("List Generate")
             with gr.Row():
                 steps = gr.Number(value=100, precision=0, label="Steps", interactive=True)
                 randomize_seed = gr.Radio(
@@ -333,17 +456,13 @@ with gr.Blocks(css="footer {visibility: hidden}") as demo:
                 )
                 text_cfg_scale = gr.Number(value=7.5, label=f"Text CFG", interactive=True)
                 image_cfg_scale = gr.Number(value=1.5, label=f"Image CFG", interactive=True)
-            with gr.Row():
-                reset_button = gr.Button("Reset")
-                generate_button = gr.Button("Generate")
         with gr.Column(scale=1, min_width=100):
             with gr.Column():
                 mix_image = gr.Image(label=f"Mix Image", type="pil", interactive=False)
             with gr.Column():
                 edited_mask = gr.Image(label=f"Output Mask", type="pil", interactive=False)
     
-    
-    with gr.Accordion('More outputs', open=False):
+    with gr.Accordion('Click to see more (includes generation process per object for list generation and per step for single generation)', open=False):
         with gr.Row():
             weather_close_video = gr.Radio(
                 ["Show Image Video", "Close Image Video"],
@@ -365,10 +484,7 @@ with gr.Blocks(css="footer {visibility: hidden}") as demo:
     with gr.Row():
         gr.Examples(
             examples=get_example(),
-            fn=generate,
-            inputs=[input_image, instruction, steps, randomize_seed, seed, randomize_cfg, text_cfg_scale, image_cfg_scale],
-            outputs=[seed, text_cfg_scale, image_cfg_scale, edited_image, mix_image, edited_mask, mask_video, image_video, original_image, mix_result_with_red_mask],
-            cache_examples=False,
+            inputs=[input_image, instruction, list_input, steps, randomize_seed, seed, randomize_cfg, text_cfg_scale, image_cfg_scale],
         )
     
     generate_button.click(
@@ -387,6 +503,24 @@ with gr.Blocks(css="footer {visibility: hidden}") as demo:
         ],
         outputs=[seed, text_cfg_scale, image_cfg_scale, edited_image, mix_image, edited_mask, mask_video, image_video, original_image, mix_result_with_red_mask],
     )
+
+    list_generate_button.click(
+        fn=generate_list,
+        inputs=[
+            input_image,
+            list_input,
+            steps,
+            randomize_seed,
+            seed,
+            randomize_cfg,
+            text_cfg_scale,
+            image_cfg_scale,
+            weather_close_video,
+            decode_image_batch
+        ],
+        outputs=[seed, text_cfg_scale, image_cfg_scale, edited_image, mix_image, edited_mask, mask_video, image_video, original_image, mix_result_with_red_mask],
+    )
+    
     reset_button.click(
         fn=reset,
         inputs=[],
