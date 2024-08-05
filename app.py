@@ -319,6 +319,7 @@ def generate_list(
     while generate_index < len(generate_list): 
         print(f'generate_index: {str(generate_index)}')
         instruction = generate_list[generate_index]
+        
         with torch.no_grad(), autocast("cuda"), model.ema_scope():
             cond = {}
             input_image_torch = 2 * torch.tensor(np.array(input_image_copy.copy())).float() / 255 - 1
@@ -345,56 +346,69 @@ def generate_list(
             z_0, z_1, _, _ = sample_euler_ancestral(model_wrap_cfg, z_0, z_1, sigmas, height, width, extra_args=extra_args)
         
             x_0 = model.decode_first_stage(z_0)
-            
+
             x_1 = nn.functional.interpolate(z_1, size=(height, width), mode="bilinear", align_corners=False)
             x_1 = torch.where(x_1 > 0, 1, -1)  # Thresholding step
-            
-            if torch.sum(x_1).item()/x_1.numel() < -0.99:
-                seed += 1
-                retry_number +=1
-                if retry_number > max_retry:
-                    generate_index += 1
-                continue
-            else:
+
+            x_1_mean = torch.sum(x_1).item()/x_1.numel()
+
+        if x_1_mean < -0.99:
+            seed += 1
+            retry_number +=1
+            if retry_number > max_retry:
                 generate_index += 1
-            
-            x_0 = torch.clamp((x_0 + 1.0) / 2.0, min=0.0, max=1.0)
-            x_1 = torch.clamp((x_1 + 1.0) / 2.0, min=0.0, max=1.0)
-            x_0 = 255.0 * rearrange(x_0, "1 c h w -> h w c")
-            x_1 = 255.0 * rearrange(x_1, "1 c h w -> h w c")
-            x_1 = torch.cat([x_1, x_1, x_1], dim=-1)
-            edited_image = Image.fromarray(x_0.type(torch.uint8).cpu().numpy())
-            edited_mask = Image.fromarray(x_1.type(torch.uint8).cpu().numpy())
+            continue
+        else:
+            generate_index += 1
+        
+        x_0 = torch.clamp((x_0 + 1.0) / 2.0, min=0.0, max=1.0)
+        x_1 = torch.clamp((x_1 + 1.0) / 2.0, min=0.0, max=1.0)
+        x_0 = 255.0 * rearrange(x_0, "1 c h w -> h w c")
+        x_1 = 255.0 * rearrange(x_1, "1 c h w -> h w c")
+        x_1 = torch.cat([x_1, x_1, x_1], dim=-1)
+        edited_image = Image.fromarray(x_0.type(torch.uint8).cpu().numpy())
+        edited_mask = Image.fromarray(x_1.type(torch.uint8).cpu().numpy())
 
-            # 对edited_mask做膨胀
-            edited_mask_copy = edited_mask.copy()
-            kernel = np.ones((3, 3), np.uint8)
-            edited_mask = cv2.dilate(np.array(edited_mask), kernel, iterations=3)
-            edited_mask = Image.fromarray(edited_mask)
+        # 对edited_mask做膨胀
+        edited_mask_copy = edited_mask.copy()
+        kernel = np.ones((3, 3), np.uint8)
+        edited_mask = cv2.dilate(np.array(edited_mask), kernel, iterations=3)
+        edited_mask = Image.fromarray(edited_mask)
 
-            m_img = edited_mask.filter(ImageFilter.GaussianBlur(radius=3))
-            m_img = np.asarray(m_img).astype('float') / 255.0
-            img_np = np.asarray(input_image_copy).astype('float') / 255.0
-            ours_np = np.asarray(edited_image).astype('float') / 255.0
+        m_img = edited_mask.filter(ImageFilter.GaussianBlur(radius=3))
+        m_img = np.asarray(m_img).astype('float') / 255.0
+        img_np = np.asarray(input_image_copy).astype('float') / 255.0
+        ours_np = np.asarray(edited_image).astype('float') / 255.0
 
-            mix_image_np =  m_img * ours_np + (1 - m_img) * img_np
-            
-            image_video.append((mix_image_np * 255).astype(np.uint8))
-            mix_image = Image.fromarray((mix_image_np * 255).astype(np.uint8)).convert('RGB')
-            input_image_copy = mix_image
+        mix_image_np =  m_img * ours_np + (1 - m_img) * img_np
+        
+        image_video.append((mix_image_np * 255).astype(np.uint8))
+        mix_image = Image.fromarray((mix_image_np * 255).astype(np.uint8)).convert('RGB')
 
-    mix_result_with_red_mask = None
-    mask_video_path = None
-    edited_mask_copy = None
+        mix_result_with_red_mask = None
+        mask_video_path = None
+        image_video_path = None
+        edited_mask_copy = None
+        
+        if generate_index == len(generate_list):
+            image_video_path = "image.mp4"
+            fps = 2
+            with imageio.get_writer(image_video_path, fps=fps) as video:
+                for image in image_video:
+                    video.append_data(image)
 
-    image_video_path = "image.mp4"
-    fps = 2
-    with imageio.get_writer(image_video_path, fps=fps) as video:
-        for image in image_video:
-            video.append_data(image)
+        yield [int(seed), text_cfg_scale, image_cfg_scale, edited_image, mix_image, edited_mask_copy, mask_video_path, image_video_path, input_image, mix_result_with_red_mask]
+
+        input_image_copy = mix_image
+
+    # mix_result_with_red_mask = None
+    # mask_video_path = None
+    # edited_mask_copy = None
 
     
-    return [int(seed), text_cfg_scale, image_cfg_scale, edited_image, mix_image, edited_mask_copy, mask_video_path, image_video_path, input_image, mix_result_with_red_mask]
+
+    
+    # return [int(seed), text_cfg_scale, image_cfg_scale, edited_image, mix_image, edited_mask_copy, mask_video_path, image_video_path, input_image, mix_result_with_red_mask]
 
 def reset():
     return [100, "Randomize Seed", 1372, "Fix CFG", 7.5, 1.5, None, None, None, None, None, None, None, "Close Image Video", 10]
@@ -532,4 +546,4 @@ with gr.Blocks(css="footer {visibility: hidden}") as demo:
 # demo.launch(share=True)
 
 
-demo.queue().launch()
+demo.queue().launch(enable_queue=True)
